@@ -1,103 +1,52 @@
-let translations = {
-    "es": {
-        "title": "Chat",
-        "placeholder": "Escribe un mensaje...",
-        "reply": "Respondiendo a",
-        "cancel": "Cancelar"
-    },
-    "ru": {
-        "title": "Чат",
-        "placeholder": "Напишите сообщение...",
-        "reply": "Ответ на",
-        "cancel": "Отмена"
+async function sendMessage() {
+  const input = document.getElementById('message-input');
+  const fileInput = document.getElementById('file-input');
+  let messages = JSON.parse(localStorage.getItem('messages') || '[]');
+
+  // Enviar texto
+  if (input.value) {
+    messages.push({ type: 'text', content: input.value });
+    input.value = '';
+  }
+
+  // Enviar archivo
+  if (fileInput.files.length > 0) {
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      messages.push({ type: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'file', content: e.target.result, name: file.name });
+      localStorage.setItem('messages', JSON.stringify(messages));
+      loadMessages();
+    };
+    reader.readAsDataURL(file);
+    fileInput.value = '';
+  } else {
+    localStorage.setItem('messages', JSON.stringify(messages));
+    loadMessages();
+  }
+}
+
+async function loadMessages() {
+  const messages = JSON.parse(localStorage.getItem('messages') || '[]');
+  const chat = document.getElementById('chat');
+  chat.innerHTML = messages.map(msg => {
+    if (msg.type === 'text') {
+      return `<div class="message">${msg.content}</div>`;
+    } else if (msg.type === 'image') {
+      return `<div class="message"><img src="${msg.content}" alt="${msg.name}"></div>`;
+    } else if (msg.type === 'video') {
+      return `<div class="message"><video src="${msg.content}" controls></video></div>`;
+    } else {
+      return `<div class="message"><a href="${msg.content}" download="${msg.name}">${msg.name}</a></div>`;
     }
-};
-let replyTo = null;
-
-function updateLanguage() {
-    const lang = document.getElementById("language").value;
-    document.getElementById("title").innerText = translations[lang].title;
-    document.getElementById("input-message").placeholder = translations[lang].placeholder;
-    document.getElementById("reply-box").querySelector("button").innerText = translations[lang].cancel;
-    if (replyTo) {
-        document.getElementById("reply-text").innerText = `${translations[lang].reply}: ${replyTo.content}`;
-    }
+  }).join('');
+  chat.scrollTop = chat.scrollHeight;
 }
 
-function loadMessages() {
-    fetch('/messages')
-        .then(response => response.json())
-        .then(messages => {
-            const messagesDiv = document.getElementById("messages");
-            messagesDiv.innerHTML = "";
-            messages.forEach((msg, index) => {
-                const div = document.createElement("div");
-                div.className = "message";
-                if (msg.replyTo !== undefined) {
-                    div.className += " reply";
-                    div.innerHTML = `<div class="reply-content">${messages[msg.replyTo]?.content || "Mensaje eliminado"}</div>`;
-                }
-                if (msg.type === "text") {
-                    div.innerHTML += `<p>${msg.content}</p>`;
-                } else if (msg.type === "image") {
-                    div.innerHTML += `<img src="${msg.content}" alt="Imagen">`;
-                }
-                div.onclick = () => startReply(index, msg.content);
-                messagesDiv.appendChild(div);
-            });
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        });
-}
+document.getElementById('language').addEventListener('change', (e) => {
+  const lang = e.target.value;
+  document.getElementById('message-input').placeholder = lang === 'es' ? 'Escribe un mensaje' : 'Напишите сообщение';
+});
 
-function startReply(index, content) {
-    replyTo = { index, content };
-    const lang = document.getElementById("language").value;
-    document.getElementById("reply-text").innerText = `${translations[lang].reply}: ${content}`;
-    document.getElementById("reply-box").style.display = "block";
-}
-
-function cancelReply() {
-    replyTo = null;
-    document.getElementById("reply-box").style.display = "none";
-}
-
-function sendMessage() {
-    const input = document.getElementById("input-message");
-    const fileInput = document.getElementById("input-file");
-
-    if (input.value) {
-        const message = { type: "text", content: input.value };
-        if (replyTo) message.replyTo = replyTo.index;
-        fetch('/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(message)
-        }).then(() => {
-            input.value = "";
-            cancelReply();
-            loadMessages();
-        });
-    }
-
-    if (fileInput.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const message = { type: "image", content: e.target.result };
-            if (replyTo) message.replyTo = replyTo.index;
-            fetch('/messages', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(message)
-            }).then(() => {
-                fileInput.value = "";
-                cancelReply();
-                loadMessages();
-            });
-        };
-        reader.readAsDataURL(fileInput.files[0]);
-    }
-}
-
-updateLanguage();
+// Cargar mensajes al iniciar
 loadMessages();
-setInterval(loadMessages, 5000);
