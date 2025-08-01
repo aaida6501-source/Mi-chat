@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "servidor.js",
+      "src": "server.js",
       "use": "@vercel/node"
     },
     {
@@ -12,8 +12,12 @@
   ],
   "routes": [
     {
+      "src": "/messages",
+      "dest": "server.js"
+    },
+    {
       "src": "/(.*)",
-      "dest": "servidor.js"
+      "dest": "public/$1"
     }
   ]
 }
